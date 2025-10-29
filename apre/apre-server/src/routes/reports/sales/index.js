@@ -78,4 +78,48 @@ router.get('/regions/:region', (req, res, next) => {
   }
 });
 
+
+
+/** My Chit
+
+LOCALHOST:3000/api/reports/sales/sales-by-month/april
+
+LOCALHOST:3000/api/reports/sales/sales-by-month/foo
+
+LOCALHOST:3000/api/reports/sales/sales-by-month?month=april
+
+*/
+
+router.get('/sales-by-month/:month', (req, res, next) => {
+  try{
+    const month = req.params.month;
+
+    if (!month) {
+      return res.status(400).send({ error: 'Month parameter is required' });
+    }
+
+    if (isNaN(parseInt(month))) {
+      return res.status(400).send({ error: 'Month parameter must be a number' });
+    }
+
+    if (parseInt(month) < 1 || parseInt(month) > 12) {
+      return res.status(400).send({ error: 'Month parameter must be between 1 and 12' });
+    }
+  } catch (err) {
+    console.error('err', err);
+    next(err);
+  }
+
+  // database query
+  mongo (async db => {
+    const salesByMonth = await db.collection('sales'). find({'month' : month}).toArray();
+
+    const salesByMonth2 = await db.collection('sales'). aggregate([
+      { $match: {
+         $exp:{ $eq: [ { $month: "$date" }, parseInt(month) ] }
+      }}
+  )
+
+
+
 module.exports = router;
