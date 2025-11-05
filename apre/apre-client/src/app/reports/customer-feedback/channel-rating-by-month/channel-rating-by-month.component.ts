@@ -97,10 +97,12 @@ export class ChannelRatingByMonthComponent {
     const month = this.monthForm.controls['month'].value;
     this.http.get(`${environment.apiBaseUrl}/reports/customer-feedback/channel-rating-by-month?month=${month}`).subscribe({
       next: (data: any) => {
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
           const selectedMonth = this.months.find(m => m.value === Number(month));
-          console.error('No data found for', selectedMonth.name);
-          this.errorMessage = `No data found for ${selectedMonth.name}`
+          this.errorMessage = `No data found for ${selectedMonth?.name || 'selected month'}`;
+          this.channels = [];
+          this.ratingAvg = [];
+          this.cdr.detectChanges();
           return;
         }
 
@@ -116,6 +118,10 @@ export class ChannelRatingByMonthComponent {
       },
       error: (err) => {
         console.error('Error fetching channel rating by month data:', err);
+        this.errorMessage = 'Failed to load data. Please try again.';
+        this.channels = [];
+        this.ratingAvg = [];
+        this.cdr.detectChanges();
       }
     });
   }

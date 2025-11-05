@@ -46,7 +46,9 @@ body {
 }
 
 .button--primary {
-  background-color: #20c997;
+  /*background-color: #20c997;*/
+  /*New Primary color for minor task 2*/
+  background-color: #4e4a4a;
   color: white;
 }
 
@@ -55,7 +57,9 @@ body {
 }
 
 .button--secondary {
-  background-color: #4e4a4a;
+  /*background-color: #4e4a4a;*/
+  /*New Secondary color for minor task 2*/
+  background-color: #20c997;
   color: white;
 }
 

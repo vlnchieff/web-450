@@ -143,3 +143,17 @@ describe('Apre Sales Report API - Sales by Region', () => {
     });
   });
 });
+
+
+/**
+ *
+ */
+
+describe('Apre Sales Report API - Sales by Month', () => {
+  it('responds 200, application/json, and returns an array of sales by month data', async () => {
+    const res=await request(app).get('/api/reports/sales/sales-by-month/april');
+    expect(res.statusCode).toEqual(200);
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(Array.isArray(res.body)).toBe(true);
+  })
+});

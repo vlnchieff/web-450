@@ -21,8 +21,8 @@ import { TableComponent } from './../../../shared/table/table.component';
           </select>
         </div>
         <div class="form__actions">
-          <button class="button button--primary" type="submit">Get Data</button>
-        </div>
+          <button class="button button--primary" type="submit">SUBMIT</button>
+          </div>
       </form>
 
       @if (salesData.length > 0) {

@@ -1,8 +1,8 @@
 /**
  * Author: Professor Krasso
- * Date: 8/14/24
+ * Date: 10/28/2025
  * File: index.js
- * Description: Apre sales report API for the sales reports
+ * Description: APRE sales report API for the sales reports
  */
 
 'use strict';
@@ -28,6 +28,7 @@ router.get('/regions', (req, res, next) => {
   try {
     mongo (async db => {
       const regions = await db.collection('sales').distinct('region');
+      console.log('Regions found: ', regions);
       res.send(regions);
     }, next);
   } catch (err) {
@@ -78,7 +79,172 @@ router.get('/regions/:region', (req, res, next) => {
   }
 });
 
+/**
+ * @description
+ *
+ * GET /regions/:region/products/:product
+ *
+ * Fetches sales data for a specific region and product, grouped by salesperson.
+ *
+ */
+router.get('/regions/:region/products/:product', (req, res, next) => {
+  try {
+    mongo (async db => {
+      const salesByRegionAndProduct = await db.collection('sales').aggregate([
+        {
+          $match: {
+            region: req.params.region,
+            product: req.params.product
+          }
+        },
+        {
+          $group: {
+            _id: '$salesperson',
+            totalSales: { $sum: '$amount' },
+            totalQuantity: { $sum: '$quantity' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            salesperson: '$_id',
+            totalSales: 1,
+            totalQuantity: 1
+          }
+        },
+        {
+          $sort: { salesperson: 1 }
+        }
+      ]).toArray();
+      res.send(salesByRegionAndProduct);
+    }, next);
+  } catch (err) {
+    console.error('Error getting sales data for region and product: ', err);
+    next(err);
+  }
+});
 
+/**
+ * @description
+ *
+ * GET /products
+ *
+ * Fetches a list of distinct products.
+ *
+ */
+router.get('/products', (req, res, next) => {
+  try {
+    mongo (async db => {
+      const products = await db.collection('sales').distinct('product');
+      res.send(products);
+    }, next);
+  } catch (err) {
+    console.error('Error getting products: ', err);
+    next(err);
+  }
+});
+
+/**
+ * @description
+ *
+ * GET /products/:product
+ *
+ * Fetches sales data for a specific product, grouped by region.
+ *
+ */
+router.get('/products/:product', (req, res, next) => {
+  try {
+    mongo (async db => {
+      const salesByProduct = await db.collection('sales').aggregate([
+        { $match: { product: req.params.product } },
+        {
+          $group: {
+            _id: '$region',
+            totalSales: { $sum: '$amount' },
+            totalQuantity: { $sum: '$quantity' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            region: '$_id',
+            totalSales: 1,
+            totalQuantity: 1
+          }
+        },
+        {
+          $sort: { region: 1 }
+        }
+      ]).toArray();
+      res.send(salesByProduct);
+    }, next);
+  } catch (err) {
+    console.error('Error getting sales data for product: ', err);
+    next(err);
+  }
+});
+
+/**
+ * @description
+ *
+ * GET /sales-by-region-product
+ *
+ * Fetches sales data filtered by region and/or product using query parameters.
+ * Provides flexible filtering and returns detailed sales records.
+ *
+ */
+router.get('/sales-by-region-product', (req, res, next) => {
+  try {
+    const { region, product } = req.query;
+
+    if (!region && !product) {
+      return res.status(400).send({
+        error: 'At least one query parameter (region or product) is required'
+      });
+    }
+
+    mongo (async db => {
+      const matchCriteria = {};
+      if (region) matchCriteria.region = region;
+      if (product) matchCriteria.product = product;
+
+      const salesData = await db.collection('sales').aggregate([
+        { $match: matchCriteria },
+        {
+          $group: {
+            _id: {
+              region: '$region',
+              product: '$product',
+              salesperson: '$salesperson'
+            },
+            totalSales: { $sum: '$amount' },
+            totalQuantity: { $sum: '$quantity' },
+            salesCount: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            region: '$_id.region',
+            product: '$_id.product',
+            salesperson: '$_id.salesperson',
+            totalSales: 1,
+            totalQuantity: 1,
+            salesCount: 1
+          }
+        },
+        {
+          $sort: { region: 1, product: 1, salesperson: 1 }
+        }
+      ]).toArray();
+
+      res.send(salesData);
+    }, next);
+  } catch (err) {
+    console.error('Error getting sales data by region and product: ', err);
+    next(err);
+  }
+});
 
 /** My Chit
 
@@ -88,38 +254,53 @@ LOCALHOST:3000/api/reports/sales/sales-by-month/foo
 
 LOCALHOST:3000/api/reports/sales/sales-by-month?month=april
 
-*/
+
 
 router.get('/sales-by-month/:month', (req, res, next) => {
-  try{
-    const month = req.params.month;
+  try {
+    const month = parseInt(req.params.month);
 
-    if (!month) {
-      return res.status(400).send({ error: 'Month parameter is required' });
-    }
-
-    if (isNaN(parseInt(month))) {
+    if (isNaN(month)) {
       return res.status(400).send({ error: 'Month parameter must be a number' });
     }
 
-    if (parseInt(month) < 1 || parseInt(month) > 12) {
-      return res.status(400).send({ error: 'Month parameter must be between 1 and 12' });
+    if (month < 1 || month > 12) {
+      return res.status(400).send({ error: 'Month must be between 1 and 12' });
     }
+
+    mongo(async db => {
+      const salesByMonth = await db.collection('sales').aggregate([
+        {
+          $match: {
+            $expr: { $eq: [{ $month: '$date' }, month] }
+          }
+        },
+        {
+          $group: {
+            _id: '$salesperson',
+            totalSales: { $sum: '$amount' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            salesperson: '$_id',
+            totalSales: 1
+          }
+        },
+        {
+          $sort: { salesperson: 1 }
+        }
+      ]).toArray();
+
+      res.send(salesByMonth);
+    }, next);
   } catch (err) {
-    console.error('err', err);
+    console.error('Error in sales-by-month:', err);
     next(err);
   }
-
-  // database query
-  mongo (async db => {
-    const salesByMonth = await db.collection('sales'). find({'month' : month}).toArray();
-
-    const salesByMonth2 = await db.collection('sales'). aggregate([
-      { $match: {
-         $exp:{ $eq: [ { $month: "$date" }, parseInt(month) ] }
-      }}
-  )
-
+});
+*/
 
 
 module.exports = router;

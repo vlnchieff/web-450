@@ -3,11 +3,13 @@ import { Component, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ChartComponent } from '../../../shared/chart/chart.component';
+import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'app-sales-by-region',
   standalone: true,
-  imports: [ReactiveFormsModule, ChartComponent],
+  imports: [CommonModule, ReactiveFormsModule, ChartComponent],
   template: `
     <h1>Sales by Region</h1>
     <div class="region-container">
@@ -29,9 +31,20 @@ import { ChartComponent } from '../../../shared/chart/chart.component';
         <div class="card chart-card">
           <app-chart
             [type]="'bar'"
-            [label]="'Sales by Region'"
+            [label]="'Sales by Salesperson'"
             [data]="totalSales"
             [labels]="salesPeople">
+          </app-chart>
+        </div>
+      }
+
+      @if (productSalesData.length && productLabels.length) {
+        <div class="card chart-card">
+          <app-chart
+            [type]="'bar'"
+            [label]="'Sales by Product'"
+            [data]="productSalesData"
+            [labels]="productLabels">
           </app-chart>
         </div>
       }
@@ -53,9 +66,11 @@ export class SalesByRegionComponent implements AfterViewInit {
   totalSales: number[] = [];
   salesPeople: string[] = [];
   regions: string[] = [];
+  productLabels: string[] = [];
+  productSalesData: number[] = [];
 
   regionForm = this.fb.group({
-    region: [null, Validators.compose([Validators.required])]
+    region: [null, Validators.required]
   });
 
   constructor(
@@ -74,12 +89,14 @@ export class SalesByRegionComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // No need to create chart here, it will be handled by ChartComponent
+    // Chart will be handled by ChartComponent
   }
 
   onSubmit() {
     const region = this.regionForm.controls['region'].value;
-    this.http.get(`${environment.apiBaseUrl}/reports/sales/regions/${region}`).subscribe({
+
+    // Fetch sales by salesperson for the region
+    this.http.get(`${environment.apiBaseUrl}/reports/sales/${region}`).subscribe({
       next: (data: any) => {
         this.totalSales = data.map((s: any) => s.totalSales);
         this.salesPeople = data.map((s: any) => s.salesperson);
@@ -87,12 +104,35 @@ export class SalesByRegionComponent implements AfterViewInit {
         console.log('totalSales', this.totalSales);
         console.log('salesPeople', this.salesPeople);
 
-        // Trigger change detection
-        this.cdr.markForCheck();
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error fetching sales data:', err);
+      }
+    });
+
+    // Fetch and aggregate product data for the region
+    this.http.get(`${environment.apiBaseUrl}/reports/sales/sales-by-region-product`, {
+      params: { region: region || '' }
+    }).subscribe({
+      next: (data: any) => {
+        // Aggregate by product
+        const productMap = new Map<string, number>();
+        data.forEach((item: any) => {
+          const currentTotal = productMap.get(item.product) || 0;
+          productMap.set(item.product, currentTotal + item.totalSales);
+        });
+
+        this.productLabels = Array.from(productMap.keys());
+        this.productSalesData = Array.from(productMap.values());
+
+        console.log('productLabels', this.productLabels);
+        console.log('productSalesData', this.productSalesData);
+
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error fetching product data:', err);
       }
     });
   }
