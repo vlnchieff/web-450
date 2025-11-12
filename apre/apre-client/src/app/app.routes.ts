@@ -54,6 +54,10 @@ export const salesReportRoutes: Routes = [
     component: SalesByRegionComponent
   },
   {
+    path: 'sales-by-region-and-product',
+    component: SalesByRegionAndProductComponent
+  },
+  {
     path: 'sales-by-region-tabular',
     component: SalesByRegionTabularComponent
   }
